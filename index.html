@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="pageTitle">Multi-User Wallet Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    
+    <link class="rounded-full" rel="icon" type="image/png" sizes="192x192" href="https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg">
+    <link rel="apple-touch-icon" sizes="180x180" href="https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg">
+    <meta name="apple-mobile-web-app-status-bar-style" content="#0f172a">
+    <meta name="theme-color" content="#0f172a">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+</head>
+<body class="text-slate-200">
+
+<div class="app-container">
+
+    <!-- ==================== PAGE 1: Home (Wallets) ==================== -->
+    <main id="page-home" class="page active">
+        <header class="mb-4 text-center md:text-left flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-100" data-i18n="homeTitle">Personal Wallet System</h1>
+                <p class="text-slate-400 text-xs" data-i18n="homeSubtitle">Manage members and separate cash/bank wallets per person</p>
+            </div>
+            <div class="bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-5 py-2 rounded-2xl shadow-lg text-center min-w-[180px]">
+                <p class="text-[10px] opacity-80" data-i18n="totalBalance">Total balance across all wallets</p>
+                <p class="text-xl font-bold" id="total-all-wallets">฿0.00</p>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <!-- Sidebar: Add Person + List -->
+            <div class="lg:col-span-1 space-y-4">
+                <div class="bg-slate-800 p-4 rounded-2xl shadow-xl border border-slate-700">
+                    <h2 class="text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
+                        <span data-i18n="addNewPerson">👤 Add New Person</span>
+                    </h2>
+                    <div class="space-y-2">
+                        <input type="text" id="new-user-name" data-i18n-placeholder="personNamePlaceholder" placeholder="Person name (e.g., John, Mom)" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs text-slate-200 placeholder-slate-500">
+                        <div class="grid grid-cols-2 gap-2">
+                            <input type="number" id="init-cash" data-i18n-placeholder="initialCashPlaceholder" placeholder="Initial cash" class="w-full px-2 py-1.5 bg-slate-900 border border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs text-slate-200 placeholder-slate-500" value="0">
+                            <input type="number" id="init-bank" data-i18n-placeholder="initialBankPlaceholder" placeholder="Initial bank" class="w-full px-2 py-1.5 bg-slate-900 border border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs text-slate-200 placeholder-slate-500" value="0">
+                        </div>
+                        <button onclick="createUser()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-xl font-medium transition text-xs shadow-md" data-i18n="addPersonBtn">Add Person with Wallet</button>
+                    </div>
+                </div>
+
+                <div class="bg-slate-800 p-4 rounded-2xl shadow-xl border border-slate-700">
+                    <h2 class="text-sm font-semibold text-slate-200 mb-3" data-i18n="peopleWallets">👥 People & Wallets</h2>
+                    <div id="users-list" class="space-y-3 max-h-[400px] overflow-y-auto pr-1"></div>
+                </div>
+            </div>
+
+            <!-- Main: Transaction + History -->
+            <div class="lg:col-span-2 space-y-4">
+                <!-- Transaction Card -->
+                <div class="bg-slate-800 p-4 rounded-2xl shadow-xl border border-slate-700">
+                    <div class="flex border-b border-slate-700 mb-3">
+                        <button onclick="switchTab('income-expense')" id="tab-ie" class="py-2 px-4 font-medium text-xs text-indigo-400 border-b-2 border-indigo-500 focus:outline-none" data-i18n="incomeExpenseTab">Income / Expense</button>
+                        <button onclick="switchTab('transfer')" id="tab-tf" class="py-2 px-4 font-medium text-xs text-slate-400 hover:text-indigo-400 focus:outline-none" data-i18n="transferTab">Transfer Between Wallets</button>
+                    </div>
+
+                    <div id="form-income-expense" class="space-y-3">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-[10px] font-medium text-slate-400 mb-1" data-i18n="selectPersonWallet">Select Person/Wallet</label>
+                                <select id="ie-wallet-select" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs text-slate-200"></select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-medium text-slate-400 mb-1" data-i18n="transactionType">Transaction Type</label>
+                                <select id="ie-type" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs text-slate-200">
+                                    <option value="income" class="text-emerald-400" data-i18n="incomeOption">🟢 Income</option>
+                                    <option value="expense" class="text-rose-400" data-i18n="expenseOption">🔴 Expense</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-medium text-slate-400 mb-1" data-i18n="amountLabel">Amount (THB)</label>
+                                <input type="number" id="ie-amount" placeholder="0.00" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs text-slate-200 placeholder-slate-500">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-medium text-slate-400 mb-1" data-i18n="noteLabel">Note</label>
+                            <input type="text" id="ie-note" data-i18n-placeholder="notePlaceholder" placeholder="e.g., Lunch, Salary" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs text-slate-200 placeholder-slate-500">
+                        </div>
+                        <button onclick="addTransaction()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-xl font-medium transition text-xs shadow-md" data-i18n="saveTransactionBtn">Save Transaction</button>
+                    </div>
+
+                    <div id="form-transfer" class="space-y-3 hidden">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[10px] font-medium text-slate-400 mb-1" data-i18n="fromWallet">From Source Wallet</label>
+                                <select id="tf-from-select" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs text-slate-200"></select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-medium text-slate-400 mb-1" data-i18n="toWallet">To Destination Wallet</label>
+                                <select id="tf-to-select" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs text-slate-200"></select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-medium text-slate-400 mb-1" data-i18n="transferAmount">Transfer Amount (THB)</label>
+                            <input type="number" id="tf-amount" placeholder="0.00" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs text-slate-200 placeholder-slate-500">
+                        </div>
+                        <button onclick="transferMoney()" class="w-full bg-violet-600 hover:bg-violet-700 text-white py-2 rounded-xl font-medium transition text-xs shadow-md" data-i18n="confirmTransferBtn">Confirm Transfer</button>
+                    </div>
+                </div>
+
+
+            </div>
+        </div>
+    </main>
+
+    <!-- ==================== PAGE 2: Transaction History ==================== -->
+    <main id="page-history" class="page">
+        <div class="bg-slate-800 p-4 rounded-2xl shadow-xl border border-slate-700">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-sm font-semibold text-slate-200" data-i18n="allHistory">📜 All Transaction History</h2>
+                <div class="flex gap-2">
+                    <button onclick="exportHistoryCSV()" class="text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-lg transition" data-i18n="exportCsv">📥 Export CSV</button>
+                </div>
+            </div>
+
+            <!-- Filter -->
+            <div class="flex flex-wrap gap-2 mb-3">
+                <input type="text" id="history-search" data-i18n-placeholder="searchTxPlaceholder" placeholder="🔍 Search transaction name..." oninput="applyHistoryFilter()" class="flex-1 min-w-[150px] px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <select id="history-type-filter" onchange="applyHistoryFilter()" class="px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-200 focus:outline-none">
+                    <option value="all" data-i18n="allTypes">All Types</option>
+                    <option value="income" data-i18n="incomeFilter">💰 Income</option>
+                    <option value="expense" data-i18n="expenseFilter">💸 Expense</option>
+                    <option value="transfer" data-i18n="transferFilter">🔄 Transfer</option>
+                </select>
+                <input type="date" id="history-date-from" onchange="applyHistoryFilter()" class="px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-200 focus:outline-none">
+                <span class="text-slate-500 text-xs self-center" data-i18n="dateTo">to</span>
+                <input type="date" id="history-date-to" onchange="applyHistoryFilter()" class="px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-200 focus:outline-none">
+            </div>
+
+            <!-- Summary -->
+            <div id="history-summary" class="flex gap-3 mb-3 text-[10px]"></div>
+
+            <!-- Table -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                    <thead>
+                        <tr class="border-b border-slate-700 text-slate-400">
+                            <th class="pb-2 font-medium" data-i18n="thDateTime">Date-Time</th>
+                            <th class="pb-2 font-medium" data-i18n="thDetails">Details</th>
+                            <th class="pb-2 font-medium" data-i18n="thType">Type</th>
+                            <th class="pb-2 font-medium" data-i18n="thNote">Note</th>
+                            <th class="pb-2 font-medium text-right" data-i18n="thAmount">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-list" class="divide-y divide-slate-700/50 text-slate-300"></tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="flex justify-between items-center mt-3">
+                <button class="text-xs text-slate-400 hover:text-indigo-400" id="btn-prev-page" onclick="changeHistoryPage(-1)" data-i18n="prevPage">‹ Previous</button>
+                <span class="text-[10px] text-slate-500" id="history-page-info">Page 1</span>
+                <button class="text-xs text-slate-400 hover:text-indigo-400" id="btn-next-page" onclick="changeHistoryPage(1)" data-i18n="nextPage">Next ›</button>
+            </div>
+        </div>
+
+        <!-- Chart -->
+        <div class="bg-slate-800 p-4 rounded-2xl shadow-xl border border-slate-700">
+            <h2 class="text-sm font-semibold text-slate-200 mb-3" data-i18n="monthlySummary">📊 Monthly Summary</h2>
+            <div class="relative h-48">
+                <canvas id="historyMonthlyChart"></canvas>
+            </div>
+        </div>
+    </main>
+
+    <!-- ==================== PAGE 3: Liquidity ==================== -->
+    <main id="page-liquidity" class="page">
+        <!-- Liquidity Summary Card -->
+        <div class="bg-gradient-to-r from-indigo-900/40 to-violet-900/40 p-4 rounded-2xl shadow-xl border border-indigo-700/30">
+            <div class="flex justify-around items-center">
+                <div class="text-center">
+                    <div class="text-[10px] text-slate-400 uppercase tracking-wider mb-1" data-i18n="totalIncomeMonth">Total Income / Month</div>
+                    <div class="text-lg font-bold text-emerald-400" id="liq-total-income">฿0.00</div>
+                </div>
+                <div class="w-px h-8 bg-slate-600"></div>
+                <div class="text-center">
+                    <div class="text-[10px] text-slate-400 uppercase tracking-wider mb-1" data-i18n="fixedVariable">Fixed / Variable</div>
+                    <div class="text-lg font-bold text-rose-400" id="liq-expense-breakdown">0 / 0</div>
+                </div>
+                <div class="w-px h-8 bg-slate-600"></div>
+                <div class="text-center">
+                    <div class="text-[10px] text-slate-400 uppercase tracking-wider mb-1" data-i18n="netLiquidity">Net Liquidity</div>
+                    <div class="text-lg font-bold" id="liq-net">฿0.00</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Expense Forecast -->
+        <div class="bg-slate-800 p-4 rounded-2xl shadow-xl border border-slate-700">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-sm font-semibold text-slate-200" data-i18n="expenseForecast">💸 Expense Forecast Settings</h2>
+                <button onclick="openForecastModal('expense')" class="text-[10px] bg-rose-600 hover:bg-rose-700 text-white px-3 py-1 rounded-lg transition" data-i18n="addExpensePlan">+ Add Expense Plan</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                    <thead>
+                        <tr class="border-b border-slate-700 text-slate-400">
+                            <th class="pb-2 font-medium" data-i18n="thItem">Item</th>
+                            <th class="pb-2 font-medium" data-i18n="thType2">Type</th>
+                            <th class="pb-2 font-medium text-right" data-i18n="thAmountMonth">Amount/Month</th>
+                            <th class="pb-2 font-medium text-center" data-i18n="thManage">Manage</th>
+                        </tr>
+                    </thead>
+                    <tbody id="forecast-expense-list" class="divide-y divide-slate-700/50 text-slate-300"></tbody>
+                </table>
+                <div id="forecast-expense-empty" class="text-center py-6 text-slate-500 text-xs hidden" data-i18n="noForecastItems">No forecast items yet</div>
+            </div>
+        </div>
+
+        <!-- Income Forecast -->
+        <div class="bg-slate-800 p-4 rounded-2xl shadow-xl border border-slate-700">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-sm font-semibold text-slate-200" data-i18n="incomeForecast">💰 Income Forecast Settings</h2>
+                <button onclick="openForecastModal('income')" class="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded-lg transition" data-i18n="addIncomePlan">+ Add Income Plan</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                    <thead>
+                        <tr class="border-b border-slate-700 text-slate-400">
+                            <th class="pb-2 font-medium" data-i18n="thItem2">Item</th>
+                            <th class="pb-2 font-medium text-right" data-i18n="thIncomeAmount">Income Amount</th>
+                            <th class="pb-2 font-medium text-center" data-i18n="thManage2">Manage</th>
+                        </tr>
+                    </thead>
+                    <tbody id="forecast-income-list" class="divide-y divide-slate-700/50 text-slate-300"></tbody>
+                </table>
+                <div id="forecast-income-empty" class="text-center py-6 text-slate-500 text-xs hidden" data-i18n="noForecastItems2">No forecast items yet</div>
+            </div>
+        </div>
+
+        <!-- Monthly Liquidity Chart -->
+        <div class="bg-slate-800 p-4 rounded-2xl shadow-xl border border-slate-700">
+            <h2 class="text-sm font-semibold text-slate-200 mb-3" data-i18n="liquidityChart">📈 Liquidity Chart</h2>
+            <div class="relative h-48">
+                <canvas id="liquidityChart"></canvas>
+            </div>
+        </div>
+    </main>
+
+    <!-- ==================== PAGE 4: Settings ==================== -->
+    <main id="page-settings" class="page">
+        <!-- Language -->
+        <div class="bg-slate-800 p-4 rounded-2xl shadow-xl border border-slate-700">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-sm font-semibold text-slate-200">🌐 Language</h2>
+            </div>
+            <div>
+                <label class="block text-[10px] text-slate-400 mb-1" data-i18n="selectLanguage">Select Language</label>
+                <select id="lang-select" onchange="switchLanguage(this.value)" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs text-slate-200">
+                    <option value="th">🇹🇭 ไทย</option>
+                    <option value="en">🇺🇸 English</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Notifications -->
+        <div class="bg-slate-800 p-4 rounded-2xl shadow-xl border border-slate-700">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-sm font-semibold text-slate-200" data-i18n="notifSettings">🔔 Notification Settings</h2>
+            </div>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-[10px] text-slate-400 mb-1" data-i18n="notifPermission">Notification Permission</label>
+                    <div id="notification-status" class="inline-block px-3 py-1 rounded-full text-[10px] font-medium bg-slate-700 text-slate-300" data-i18n="notifChecking">Checking...</div>
+                    <button onclick="requestNotificationPermission()" class="mt-2 w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-xl text-xs font-medium transition" data-i18n="enableNotif">🔔 Enable Notifications</button>
+                </div>
+                <hr class="border-slate-700">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xs font-semibold text-slate-200" data-i18n="notifTimes">Notification Times</h3>
+                    <button onclick="addNotificationTime()" class="text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-lg transition" data-i18n="addTime">+ Add Time</button>
+                </div>
+                <div id="notification-times-list" class="space-y-2"></div>
+                <button onclick="testNotification()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-xl text-xs font-medium transition" id="btn-test-notif" data-i18n="testNotif">🧪 Test Notification Now</button>
+            </div>
+        </div>
+
+        <!-- Data Management -->
+        <div class="bg-slate-800 p-4 rounded-2xl shadow-xl border border-slate-700">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-sm font-semibold text-slate-200" data-i18n="dataManagement">💾 Data Management</h2>
+            </div>
+            <div class="space-y-2">
+                <button onclick="loadSampleData(); updateUI(); showToast(t('sampleDataLoaded'));" class="w-full bg-amber-600 hover:bg-amber-700 text-white py-2 rounded-xl text-xs font-medium transition" data-i18n="loadSample">🎲 Load Sample Data</button>
+                <button onclick="exportAllData()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-xl text-xs font-medium transition" data-i18n="exportAll">📤 Export All Data (JSON)</button>
+                <label class="block w-full bg-violet-600 hover:bg-violet-700 text-white py-2 rounded-xl text-xs font-medium transition text-center cursor-pointer">
+                    <span data-i18n="importAll">📥 Import Data (JSON)</span>
+                    <input type="file" accept=".json" onchange="importAllData(event)" class="hidden">
+                </label>
+                <button onclick="openClearDataModal()" class="w-full bg-slate-700 hover:bg-slate-600 text-slate-200 py-2 rounded-xl text-xs font-medium transition" data-i18n="clearHistory">🗑️ Clear Transaction History</button>
+                <button onclick="openResetDataModal()" class="w-full bg-rose-600 hover:bg-rose-700 text-white py-2 rounded-xl text-xs font-medium transition" data-i18n="resetAll">⚠️ Reset All Data</button>
+            </div>
+        </div>
+
+        <!-- About -->
+        <div class="bg-slate-800 p-4 rounded-2xl shadow-xl border border-slate-700">
+            <div class="text-center">
+                <h2 class="text-sm font-semibold text-slate-200 mb-1" data-i18n="aboutTitle">Multi-User Wallet Tracker</h2>
+                <p class="text-[10px] text-slate-500" data-i18n="aboutVersion">Version 2.0 — Personal Wallet System</p>
+                <p class="text-[10px] text-slate-500 mt-1" data-i18n="aboutStorage">Data is stored in browser's LocalStorage</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- ==================== BOTTOM NAVIGATION BAR ==================== -->
+    <nav class="bottom-nav">
+        <button class="nav-item active" onclick="switchPage('home', this)">
+            <span class="nav-icon">👛</span>
+            <span class="nav-label" data-i18n="navHome">Home</span>
+        </button>
+        <button class="nav-item" onclick="switchPage('history', this)">
+            <span class="nav-icon">📜</span>
+            <span class="nav-label" data-i18n="navHistory">History</span>
+        </button>
+        <button class="nav-item" onclick="switchPage('liquidity', this)">
+            <span class="nav-icon">📊</span>
+            <span class="nav-label" data-i18n="navLiquidity">Liquidity</span>
+        </button>
+        <button class="nav-item" onclick="switchPage('settings', this)">
+            <span class="nav-icon">⚙️</span>
+            <span class="nav-label" data-i18n="navSettings">Settings</span>
+        </button>
+    </nav>
+
+</div>
+
+<!-- ==================== MODALS ==================== -->
+
+<!-- Analytics Modal -->
+<div id="analytics-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden opacity-0 transition-opacity duration-200">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-2xl w-full p-5 shadow-2xl flex flex-col max-h-[90vh] transform scale-95 transition-transform duration-200">
+        <div class="flex justify-between items-center border-b border-slate-700 pb-3 mb-4">
+            <div>
+                <h3 class="text-lg font-bold text-slate-100 flex items-center gap-2" data-i18n="analyticsTitle">📊 Details & Overview Statistics</h3>
+                <p class="text-xs text-indigo-400 mt-0.5"><span data-i18n="personLabel">Person:</span> <span id="ana-user-name" class="font-semibold text-slate-200"></span></p>
+            </div>
+            <button onclick="closeModal('analytics-modal')" class="text-slate-400 hover:text-slate-200 text-xl font-semibold">✕</button>
+        </div>
+        <div class="space-y-4 flex-1 overflow-y-auto pr-1">
+            <div class="grid grid-cols-2 gap-3 text-xs">
+                <div class="bg-slate-900/40 border border-slate-700/60 p-3 rounded-xl">
+                    <p class="text-slate-400 font-medium" data-i18n="todayMaxIncome">📈 Today's Max Income</p>
+                    <p class="text-lg font-bold text-emerald-400 mt-1" id="ana-max-income">฿0.00</p>
+                </div>
+                <div class="bg-slate-900/40 border border-slate-700/60 p-3 rounded-xl">
+                    <p class="text-slate-400 font-medium" data-i18n="todayTotalIncome">💰 Today's Total Income</p>
+                    <p class="text-lg font-bold text-emerald-400 mt-1" id="ana-today-income">฿0.00</p>
+                </div>
+                <div class="bg-slate-900/40 border border-slate-700/60 p-3 rounded-xl">
+                    <p class="text-slate-400 font-medium" data-i18n="todayMaxExpense">📉 Today's Max Expense</p>
+                    <p class="text-lg font-bold text-rose-400 mt-1" id="ana-max-expense">฿0.00</p>
+                </div>
+                <div class="bg-slate-900/40 border border-slate-700/60 p-3 rounded-xl">
+                    <p class="text-slate-400 font-medium" data-i18n="todayTotalExpense">💸 Today's Total Expense</p>
+                    <p class="text-lg font-bold text-rose-400 mt-1" id="ana-today-expense">฿0.00</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div class="bg-slate-900/40 border border-slate-700/60 p-3 rounded-xl space-y-1.5">
+                    <p class="text-[10px] text-slate-400 font-medium" data-i18n="avgDailyIncome">📅 Average Daily Income</p>
+                    <div class="grid grid-cols-2 gap-2 text-[10px]">
+                        <div class="bg-slate-800/40 p-2 rounded-lg">
+                            <span class="text-slate-500 block" data-i18n="last7Days">Last 7 days:</span>
+                            <span class="font-bold text-emerald-400" id="ana-avg-in7">฿0.00</span>
+                        </div>
+                        <div class="bg-slate-800/40 p-2 rounded-lg">
+                            <span class="text-slate-500 block" data-i18n="last30Days">Last 30 days:</span>
+                            <span class="font-semibold text-slate-300" id="ana-avg-in30">฿0.00</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-slate-900/40 border border-slate-700/60 p-3 rounded-xl space-y-1.5">
+                    <p class="text-[10px] text-slate-400 font-medium" data-i18n="avgDailyExpense">📅 Average Daily Expense</p>
+                    <div class="grid grid-cols-2 gap-2 text-[10px]">
+                        <div class="bg-slate-800/40 p-2 rounded-lg">
+                            <span class="text-slate-500 block" data-i18n="last7Days2">Last 7 days:</span>
+                            <span class="font-bold text-rose-400" id="ana-avg-out7">฿0.00</span>
+                        </div>
+                        <div class="bg-slate-800/40 p-2 rounded-lg">
+                            <span class="text-slate-500 block" data-i18n="last30Days2">Last 30 days:</span>
+                            <span class="font-semibold text-slate-300" id="ana-avg-out30">฿0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-slate-900/40 border border-slate-700/60 rounded-xl p-3 space-y-2">
+                <p class="text-[10px] font-semibold text-slate-300" data-i18n="dailySummary">📋 Daily Income-Expense Summary</p>
+                <div class="overflow-x-auto rounded-lg border border-slate-700/40">
+                    <table class="w-full text-left text-[10px]">
+                        <thead class="bg-slate-900 text-slate-400 border-b border-slate-700">
+                            <tr>
+                                <th class="p-2 font-medium" data-i18n="thDate">Date</th>
+                                <th class="p-2 font-medium text-right text-emerald-400" data-i18n="thTotalIncome">Total Income</th>
+                                <th class="p-2 font-medium text-right text-rose-400" data-i18n="thTotalExpense">Total Expense</th>
+                                <th class="p-2 font-medium text-right" data-i18n="thNet">Net</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ana-table-rows" class="divide-y divide-slate-800 text-slate-300"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="pt-3 border-t border-slate-700 mt-2">
+            <button onclick="closeModal('analytics-modal')" class="w-full bg-rose-600 hover:bg-rose-700 text-white py-2 rounded-xl text-xs font-medium transition shadow-md" data-i18n="closeDetails">❌ Close Details Window</button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete User Modal -->
+<div id="delete-user-popup" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden opacity-0 transition-opacity duration-200">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4 transform scale-95 transition-transform duration-200">
+        <div class="text-center">
+            <span class="text-4xl">⚠️</span>
+            <h3 class="text-lg font-bold text-slate-100 mt-2" id="del-popup-title" data-i18n="removePerson">Remove person from system</h3>
+            <p class="text-xs text-slate-400 mt-1" data-i18n="removePersonDesc">This person's total balance will be permanently deleted and cannot be recovered</p>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+            <button onclick="closeModal('delete-user-popup')" class="bg-slate-700 hover:bg-slate-600 text-slate-200 py-2 rounded-xl text-sm font-medium transition" data-i18n="cancelBtn">Cancel</button>
+            <button id="btn-hold-delete" class="btn-hold">
+                <div class="progress" id="hold-progress-delete"></div>
+                <span data-i18n="holdConfirm">Hold 3 seconds to confirm</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Input Modal -->
+<div id="input-popup" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden opacity-0 transition-opacity duration-200">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4 transform scale-95 transition-transform duration-200">
+        <div>
+            <h3 class="text-base font-bold text-slate-100" id="input-popup-title" data-i18n="editData">Edit Data</h3>
+            <p class="text-xs text-slate-400 mt-0.5" id="input-popup-desc" data-i18n="fillInfo">Please fill in the information below</p>
+        </div>
+        <input type="text" id="input-popup-field" class="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-slate-200">
+        <div class="grid grid-cols-2 gap-3">
+            <button onclick="closeModal('input-popup')" class="bg-slate-700 hover:bg-slate-600 text-slate-200 py-2 rounded-xl text-sm font-medium transition" data-i18n="cancelBtn2">Cancel</button>
+            <button id="input-popup-save-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-xl text-sm font-medium transition" data-i18n="saveBtn">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- Confirm Modal -->
+<div id="confirm-popup" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden opacity-0 transition-opacity duration-200">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4 transform scale-95 transition-transform duration-200">
+        <div class="text-center">
+            <h3 class="text-base font-bold text-slate-100" id="confirm-popup-title" data-i18n="confirmTx">💡 Confirm Transaction</h3>
+            <p class="text-sm text-slate-300 mt-2" id="confirm-popup-desc" data-i18n="notifDetails">Notification details</p>
+        </div>
+        <div class="grid grid-cols-2 gap-3 pt-2">
+            <button onclick="closeModal('confirm-popup')" class="bg-slate-700 hover:bg-slate-600 text-slate-200 py-2 rounded-xl text-sm font-medium transition" data-i18n="rejectBtn">Cancel</button>
+            <button id="confirm-popup-ok-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-xl text-sm font-medium transition" data-i18n="okBtn">OK</button>
+        </div>
+    </div>
+</div>
+
+<!-- Forecast Modal -->
+<div id="forecast-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden opacity-0 transition-opacity duration-200">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4 transform scale-95 transition-transform duration-200">
+        <div>
+            <h3 class="text-base font-bold text-slate-100" id="forecast-modal-title" data-i18n="addForecastPlan">Add Forecast Plan</h3>
+        </div>
+        <div class="space-y-3">
+            <div>
+                <label class="block text-[10px] font-medium text-slate-400 mb-1" data-i18n="itemName">Item Name *</label>
+                <input type="text" id="fc-title" data-i18n-placeholder="itemNamePlaceholder" placeholder="e.g., House rent" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <div id="fc-category-group">
+                <label class="block text-[10px] font-medium text-slate-400 mb-1" data-i18n="category">Category</label>
+                <select id="fc-category" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none">
+                    <option value="fixed" data-i18n="fixedCost">Fixed Cost (Recurring/Essential)</option>
+                    <option value="variable" data-i18n="variableCost">Variable Cost (Variable)</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] font-medium text-slate-400 mb-1" data-i18n="amountMonth">Amount/Month *</label>
+                <input type="number" id="fc-amount" step="0.01" placeholder="0.00" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <div>
+                <label class="block text-[10px] font-medium text-slate-400 mb-1" data-i18n="dueDate">Due Date</label>
+                <select id="fc-schedule" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none">
+                    <option value="Every 1st" data-i18n="every1st">Every 1st</option>
+                    <option value="Every 5th" data-i18n="every5th">Every 5th</option>
+                    <option value="Every 10th" data-i18n="every10th">Every 10th</option>
+                    <option value="Every 15th" data-i18n="every15th">Every 15th</option>
+                    <option value="Every 20th" data-i18n="every20th">Every 20th</option>
+                    <option value="Every 25th" data-i18n="every25th">Every 25th</option>
+                    <option value="End of month" data-i18n="endOfMonth">End of month</option>
+                    <option value="custom" data-i18n="customOption">Custom...</option>
+                </select>
+                <input type="text" id="fc-schedule-custom" data-i18n-placeholder="customSchedulePlaceholder" placeholder="e.g., Every Monday, Every 7th" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 mt-2 hidden">
+            </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+            <button onclick="closeModal('forecast-modal')" class="bg-slate-700 hover:bg-slate-600 text-slate-200 py-2 rounded-xl text-sm font-medium transition" data-i18n="cancelBtn3">Cancel</button>
+            <button onclick="submitForecast()" class="bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-xl text-sm font-medium transition" data-i18n="savePlanBtn">Save Plan</button>
+        </div>
+    </div>
+</div>
+
+<!-- Clear Data Modal -->
+<div id="clear-data-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden opacity-0 transition-opacity duration-200">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4 transform scale-95 transition-transform duration-200">
+        <div class="text-center">
+            <span class="text-4xl">🗑️</span>
+            <h3 class="text-lg font-bold text-slate-100 mt-2" data-i18n="clearHistoryTitle">Clear Transaction History</h3>
+            <p class="text-xs text-slate-400 mt-1" data-i18n="clearHistoryDesc">History will be deleted but balances will not change</p>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+            <button onclick="closeModal('clear-data-modal')" class="bg-slate-700 hover:bg-slate-600 text-slate-200 py-2 rounded-xl text-sm font-medium transition" data-i18n="cancelBtn4">Cancel</button>
+            <button id="btn-hold-clear" class="btn-hold">
+                <div class="progress" id="hold-progress-clear"></div>
+                <span data-i18n="holdConfirm2">Hold 3 seconds to confirm</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Data Modal -->
+<div id="reset-data-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden opacity-0 transition-opacity duration-200">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4 transform scale-95 transition-transform duration-200">
+        <div class="text-center">
+            <span class="text-4xl">⚠️</span>
+            <h3 class="text-lg font-bold text-slate-100 mt-2" data-i18n="resetAllTitle">Reset All Data</h3>
+            <p class="text-xs text-slate-400 mt-1" data-i18n="resetAllDesc">All data will be deleted and reset to defaults</p>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+            <button onclick="closeModal('reset-data-modal')" class="bg-slate-700 hover:bg-slate-600 text-slate-200 py-2 rounded-xl text-sm font-medium transition" data-i18n="cancelBtn5">Cancel</button>
+            <button id="btn-hold-reset" class="btn-hold">
+                <div class="progress" id="hold-progress-reset"></div>
+                <span data-i18n="holdConfirm3">Hold 3 seconds to confirm</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div id="toast-box" class="fixed bottom-20 right-5 bg-indigo-600 text-white font-medium text-xs px-5 py-3 rounded-xl shadow-2xl transition-all duration-300 transform translate-y-20 opacity-0 z-50 flex items-center gap-2">
+    <span id="toast-msg">Saved successfully</span>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,201 @@
+/* ═══════════════════════════════════════════════════
+   Wallet2 — Multi-User Wallet Tracker
+   Dark Theme with Neon Accent
+   ═══════════════════════════════════════════════════ */
+
+body {
+    font-family: 'Prompt', sans-serif;
+    background-color: #0f172a;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ─── APP CONTAINER ─── */
+.app-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    min-height: 100vh;
+    padding: 16px;
+    padding-bottom: 80px; /* Space for bottom nav */
+    position: relative;
+}
+
+/* ─── PAGES ─── */
+.page {
+    display: none;
+    flex-direction: column;
+    gap: 16px;
+    animation: pageIn 0.3s ease-out;
+}
+.page.active {
+    display: flex;
+}
+
+@keyframes pageIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── SCROLLBAR ─── */
+::-webkit-scrollbar {
+    width: 5px;
+}
+::-webkit-scrollbar-track {
+    background: #1e293b;
+}
+::-webkit-scrollbar-thumb {
+    background: #475569;
+    border-radius: 10px;
+}
+
+/* ═══════ BOTTOM NAVIGATION BAR ═══════ */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.97), rgba(2, 6, 23, 0.99));
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+    z-index: 100;
+}
+
+.bottom-nav::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #00e676, #448aff, #e040fb, #ff4081);
+    opacity: 0.6;
+}
+
+.nav-item {
+    background: none;
+    border: none;
+    color: #666680;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    padding: 6px 16px;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 8px;
+    position: relative;
+}
+.nav-item:hover {
+    color: #b0b0c0;
+}
+.nav-item.active {
+    color: #00e676;
+}
+.nav-item.active::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 24px;
+    height: 3px;
+    background: linear-gradient(90deg, #00e676, #18ffff);
+    border-radius: 2px;
+    box-shadow: 0 0 10px rgba(0, 230, 118, 0.5);
+}
+.nav-icon {
+    font-size: 22px;
+}
+.nav-label {
+    font-size: 10px;
+    margin-top: 4px;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+}
+
+/* ═══════ MODAL OVERLAY ═══════ */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 6, 23, 0.85);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 200;
+}
+
+/* ═══════ HOLD BUTTON ═══════ */
+.btn-hold {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #d32f2f, #b71c1c);
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 12px;
+    border: none;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.btn-hold .progress {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, rgba(255,255,255,0.15), rgba(255,255,255,0.3));
+    border-radius: 12px;
+    transition: width 0.1s linear;
+    pointer-events: none;
+}
+.btn-hold span {
+    position: relative;
+    z-index: 1;
+}
+.btn-hold:active {
+    transform: scale(0.97);
+}
+
+/* ═══════ TOAST ═══════ */
+#toast-box {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ═══════ HISTORY SUMMARY ═══════ */
+.history-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* ═══════ RESPONSIVE ═══════ */
+@media (max-width: 640px) {
+    .app-container {
+        padding: 12px;
+        padding-bottom: 80px;
+    }
+    .bottom-nav {
+        height: 60px;
+    }
+    .nav-item {
+        padding: 4px 12px;
+    }
+    .nav-icon {
+        font-size: 20px;
+    }
+}
