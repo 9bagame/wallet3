@@ -633,9 +633,6 @@ function updateUI() {
     renderUsers();
     renderDropdowns();
     calculateTotal();
-
-    // Sync wallet data to SW for notification body
-    syncWalletDataToSW();
 }
 
 function calculateTotal() {
@@ -1203,7 +1200,6 @@ function addNotificationTime() {
         notificationTimes.push(time.trim());
         localStorage.setItem('multi_notif_times', JSON.stringify(notificationTimes));
         renderNotificationTimes();
-        syncNotificationTimesToSW();
         showToast(`${t('notifTimeAdded')}${time.trim()}${t('notifTimeAdded2')}`);
     } else if (time) {
         showToast(t('notifTimeBadFormat'), 'bg-rose-600');
@@ -1234,19 +1230,7 @@ function removeNotificationTime(idx) {
     notificationTimes.splice(idx, 1);
     localStorage.setItem('multi_notif_times', JSON.stringify(notificationTimes));
     renderNotificationTimes();
-    syncNotificationTimesToSW();
     showToast(t('notifTimeRemoved'));
-}
-
-function syncNotificationTimesToSW() {
-    // Send to Service Worker for background scheduling
-    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({
-            type: 'SET_NOTIFICATION_TIMES',
-            times: notificationTimes
-        });
-        console.log('[App] Synced notification times to SW:', notificationTimes);
-    }
 }
 
 function testNotification() {
@@ -1254,75 +1238,118 @@ function testNotification() {
         showToast(t('notifTestPleaseEnable'), 'bg-rose-600');
         return;
     }
-    // Try Service Worker notification first (works in background)
-    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({
-            type: 'TEST_NOTIFICATION',
-            title: t('notifTestTitle'),
+    try {
+        new Notification(t('notifTestTitle'), {
             body: t('notifTestBody'),
             icon: 'https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg',
-            badge: 'https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg'
+            badge: 'https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg',
+            tag: 'wallet3-test',
+            requireInteraction: false,
+            silent: false
         });
         showToast(t('notifTestSent'));
-    } else {
-        // Fallback to regular Notification API
-        try {
-            const notif = new Notification(t('notifTestTitle'), {
-                body: t('notifTestBody'),
-                icon: 'https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg',
-                badge: 'https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg',
-                tag: 'wallet3-test',
-                requireInteraction: false,
-                silent: false
-            });
-            notif.onclick = function() { window.focus(); notif.close(); };
-            showToast(t('notifTestSent'));
-        } catch (e) {
-            alert(t('notifTestTitle') + '\n' + t('notifTestBody'));
-            showToast(t('notifTestSent'));
-        }
+    } catch (e) {
+        showToast(t('notifTestSent'));
     }
 }
 
 // ═══════════════════════════════════════════════════
-// ⏰ SCHEDULED NOTIFICATIONS — Check every minute
+// ⏰ SCHEDULED NOTIFICATIONS
+// - ตรงเวลา → แจ้งทันที
+// - เปิดเว็บไม่ทัน → แจ้งตอนเปิดเว็บ (ถ้ายังอยู่ในวันเดียวกัน)
 // ═══════════════════════════════════════════════════
 
 let lastNotifMinute = '';
 
-function checkScheduledNotifications() {
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
-    if (!notificationTimes || notificationTimes.length === 0) return;
+// Get today's key like "2026-08-30"
+function getTodayKey() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
 
-    const now = new Date();
-    const currentHH = String(now.getHours()).padStart(2, '0');
-    const currentMM = String(now.getMinutes()).padStart(2, '0');
-    const currentMinute = currentHH + ':' + currentMM;
+// Get fired notifications for today from localStorage
+function getFiredToday() {
+    const key = 'wallet3_fired_' + getTodayKey();
+    return JSON.parse(localStorage.getItem(key)) || [];
+}
 
-    // Only fire once per minute
-    if (currentMinute === lastNotifMinute) return;
-    lastNotifMinute = currentMinute;
-
-    // Check if current time matches any scheduled time
-    if (notificationTimes.includes(currentMinute)) {
-        try {
-            const notif = new Notification(t('notifTestTitle'), {
-                body: t('notifTestBody'),
-                icon: 'https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg',
-                badge: 'https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg',
-                tag: 'wallet2-scheduled-' + currentMinute,
-                requireInteraction: true,
-                silent: false
-            });
-            notif.onclick = function() { window.focus(); notif.close(); };
-        } catch (e) {
-            console.warn('Scheduled notification failed:', e);
-        }
+// Mark a notification as fired today
+function markFired(time) {
+    const key = 'wallet3_fired_' + getTodayKey();
+    const fired = getFiredToday();
+    if (!fired.includes(time)) {
+        fired.push(time);
+        localStorage.setItem(key, JSON.stringify(fired));
     }
 }
 
+// Check if a notification was already fired today
+function isFiredToday(time) {
+    return getFiredToday().includes(time);
+}
+
+// Fire a notification (only Notification API, no alert)
+function fireNotification(time) {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    if (isFiredToday(time)) return; // already fired
+
+    const total = users ? users.reduce((sum, u) => sum + u.cash + u.bank, 0) : 0;
+    const body = '💰 ยอดเงินรวม: ฿' + total.toLocaleString('th-TH', { minimumFractionDigits: 2 });
+
+    try {
+        new Notification('🔔 Wallet3 — ' + time, {
+            body: body,
+            icon: 'https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg',
+            badge: 'https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg',
+            tag: 'wallet3-' + time,
+            requireInteraction: false,
+            silent: false
+        });
+        markFired(time);
+    } catch (e) {
+        console.warn('Notification failed:', e);
+    }
+}
+
+// Check scheduled notifications every minute
+function checkScheduledNotifications() {
+    if (!notificationTimes || notificationTimes.length === 0) return;
+
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    const currentMinute = hh + ':' + mm;
+
+    if (currentMinute === lastNotifMinute) return;
+    lastNotifMinute = currentMinute;
+
+    // Fire if matches scheduled time and not yet fired today
+    if (notificationTimes.includes(currentMinute) && !isFiredToday(currentMinute)) {
+        fireNotification(currentMinute);
+    }
+}
+
+// Check for missed notifications when app loads
+function checkMissedNotifications() {
+    if (!notificationTimes || notificationTimes.length === 0) return;
+
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    notificationTimes.forEach(time => {
+        const [hh, mm] = time.split(':').map(Number);
+        const scheduledMinutes = hh * 60 + mm;
+
+        // If scheduled time is earlier than now and not yet fired today
+        if (scheduledMinutes <= currentMinutes && !isFiredToday(time)) {
+            // Small delay so user sees the notification after page loads
+            setTimeout(() => fireNotification(time), 3000);
+        }
+    });
+}
+
 // Start the scheduled notification checker
-setInterval(checkScheduledNotifications, 10000); // Check every 10 seconds for better accuracy
+setInterval(checkScheduledNotifications, 30000); // Every 30 seconds
 
 // ═══════════════════════════════════════════════════
 // 📤 EXPORT / IMPORT
@@ -1769,19 +1796,9 @@ if (ieTypeSelect && lastTxType) {
     ieTypeSelect.value = lastTxType;
 }
 
-// Sync notification times and wallet data to Service Worker on load
+// Check for missed notifications when app loads
 setTimeout(() => {
-    syncNotificationTimesToSW();
-    syncWalletDataToSW();
-}, 2000);
-
-function syncWalletDataToSW() {
-    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-        const total = users.reduce((sum, user) => sum + user.cash + user.bank, 0);
-        try {
-            const cache = caches.open('wallet3-data').then(cache => {
-                cache.put('wallet-data', new Response(JSON.stringify({ total: total })), { headers: { 'Content-Type': 'application/json' } });
-            });
-        } catch(e) {}
+    if ('Notification' in window && Notification.permission === 'granted') {
+        checkMissedNotifications();
     }
-}
+}, 2000);
