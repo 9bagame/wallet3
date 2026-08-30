@@ -638,6 +638,27 @@ function updateUI() {
 function calculateTotal() {
     const total = users.reduce((sum, user) => sum + user.cash + user.bank, 0);
     document.getElementById('total-all-wallets').innerText = `\u0E3F${total.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`;
+    // Send balance to SW for background notifications
+    syncSWBalance(total);
+}
+
+// ─── Sync notification data to Service Worker ───
+function syncSWNotificationTimes() {
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+            type: 'SET_NOTIFICATION_TIMES',
+            times: notificationTimes
+        });
+    }
+}
+
+function syncSWBalance(total) {
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+            type: 'SET_BALANCE',
+            total: total
+        });
+    }
 }
 
 // ═══════════════════════════════════════════════════
@@ -1243,6 +1264,7 @@ function addNotificationTime() {
         notificationTimes.push(time.trim());
         localStorage.setItem('multi_notif_times', JSON.stringify(notificationTimes));
         renderNotificationTimes();
+        syncSWNotificationTimes();
         showToast(`${t('notifTimeAdded')}${time.trim()}${t('notifTimeAdded2')}`);
     } else if (time) {
         showToast(t('notifTimeBadFormat'), 'bg-rose-600');
@@ -1273,6 +1295,7 @@ function removeNotificationTime(idx) {
     notificationTimes.splice(idx, 1);
     localStorage.setItem('multi_notif_times', JSON.stringify(notificationTimes));
     renderNotificationTimes();
+    syncSWNotificationTimes();
     showToast(t('notifTimeRemoved'));
 }
 

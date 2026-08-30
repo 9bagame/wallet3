@@ -556,15 +556,19 @@ if ('serviceWorker' in navigator) {
             const reg = await navigator.serviceWorker.register('./sw.js');
             console.log('[App] Service Worker registered:', reg.scope);
             window._swReg = reg;
-            // Send current notification times to SW
+            // Send current notification times & balance to SW
             const times = JSON.parse(localStorage.getItem('multi_notif_times')) || [];
+            const users = JSON.parse(localStorage.getItem('multi_users')) || [];
+            const totalBalance = users.reduce((sum, u) => sum + (u.cash || 0) + (u.bank || 0), 0);
             if (reg.active) {
                 reg.active.postMessage({ type: 'SET_NOTIFICATION_TIMES', times: times });
+                reg.active.postMessage({ type: 'SET_BALANCE', total: totalBalance });
             }
             // Also send on controllerchange
             navigator.serviceWorker.addEventListener('controllerchange', () => {
                 if (navigator.serviceWorker.controller) {
                     navigator.serviceWorker.controller.postMessage({ type: 'SET_NOTIFICATION_TIMES', times: times });
+                    navigator.serviceWorker.controller.postMessage({ type: 'SET_BALANCE', total: totalBalance });
                 }
             });
         } catch (e) {
