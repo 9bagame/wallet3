@@ -1238,11 +1238,63 @@ function testNotification() {
         showToast(t('notifTestPleaseEnable'), 'bg-rose-600');
         return;
     }
-    new Notification(t('notifTestTitle'), {
-        body: t('notifTestBody'),
-    });
-    showToast(t('notifTestSent'));
+    try {
+        const notif = new Notification(t('notifTestTitle'), {
+            body: t('notifTestBody'),
+            icon: 'https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg',
+            badge: 'https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg',
+            tag: 'wallet2-test',
+            requireInteraction: false,
+            silent: false
+        });
+        notif.onclick = function() { window.focus(); notif.close(); };
+        showToast(t('notifTestSent'));
+    } catch (e) {
+        // Fallback: use alert if Notification API fails
+        alert(t('notifTestTitle') + '\n' + t('notifTestBody'));
+        showToast(t('notifTestSent'));
+    }
 }
+
+// ═══════════════════════════════════════════════════
+// ⏰ SCHEDULED NOTIFICATIONS — Check every minute
+// ═══════════════════════════════════════════════════
+
+let lastNotifMinute = '';
+
+function checkScheduledNotifications() {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    if (!notificationTimes || notificationTimes.length === 0) return;
+
+    const now = new Date();
+    const currentHH = String(now.getHours()).padStart(2, '0');
+    const currentMM = String(now.getMinutes()).padStart(2, '0');
+    const currentMinute = currentHH + ':' + currentMM;
+
+    // Only fire once per minute
+    if (currentMinute === lastNotifMinute) return;
+    lastNotifMinute = currentMinute;
+
+    // Check if current time matches any scheduled time
+    if (notificationTimes.includes(currentMinute)) {
+        try {
+            const notif = new Notification(t('notifTestTitle'), {
+                body: t('notifTestBody'),
+                icon: 'https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg',
+                badge: 'https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg',
+                tag: 'wallet2-scheduled-' + currentMinute,
+                requireInteraction: true,
+                silent: false
+            });
+            notif.onclick = function() { window.focus(); notif.close(); };
+        } catch (e) {
+            console.warn('Scheduled notification failed:', e);
+        }
+    }
+}
+
+// Start the scheduled notification checker
+setInterval(checkScheduledNotifications, 10000); // Check every 10 seconds for better accuracy
 
 // ═══════════════════════════════════════════════════
 // 📤 EXPORT / IMPORT
