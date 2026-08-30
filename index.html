@@ -547,5 +547,30 @@
 </div>
 
 <script src="app.js"></script>
+<script>
+// Register Service Worker for background notifications
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', async () => {
+        try {
+            const reg = await navigator.serviceWorker.register('/sw.js');
+            console.log('[App] Service Worker registered:', reg.scope);
+            window._swReg = reg;
+            // Send current notification times to SW
+            const times = JSON.parse(localStorage.getItem('multi_notif_times')) || [];
+            if (reg.active) {
+                reg.active.postMessage({ type: 'SET_NOTIFICATION_TIMES', times: times });
+            }
+            // Also send on controllerchange
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.controller.postMessage({ type: 'SET_NOTIFICATION_TIMES', times: times });
+                }
+            });
+        } catch (e) {
+            console.warn('[App] SW registration failed:', e);
+        }
+    });
+}
+</script>
 </body>
 </html>

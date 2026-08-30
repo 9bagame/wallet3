@@ -633,6 +633,9 @@ function updateUI() {
     renderUsers();
     renderDropdowns();
     calculateTotal();
+
+    // Sync wallet data to SW for notification body
+    syncWalletDataToSW();
 }
 
 function calculateTotal() {
@@ -1200,6 +1203,7 @@ function addNotificationTime() {
         notificationTimes.push(time.trim());
         localStorage.setItem('multi_notif_times', JSON.stringify(notificationTimes));
         renderNotificationTimes();
+        syncNotificationTimesToSW();
         showToast(`${t('notifTimeAdded')}${time.trim()}${t('notifTimeAdded2')}`);
     } else if (time) {
         showToast(t('notifTimeBadFormat'), 'bg-rose-600');
@@ -1230,7 +1234,19 @@ function removeNotificationTime(idx) {
     notificationTimes.splice(idx, 1);
     localStorage.setItem('multi_notif_times', JSON.stringify(notificationTimes));
     renderNotificationTimes();
+    syncNotificationTimesToSW();
     showToast(t('notifTimeRemoved'));
+}
+
+function syncNotificationTimesToSW() {
+    // Send to Service Worker for background scheduling
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+            type: 'SET_NOTIFICATION_TIMES',
+            times: notificationTimes
+        });
+        console.log('[App] Synced notification times to SW:', notificationTimes);
+    }
 }
 
 function testNotification() {
@@ -1238,21 +1254,33 @@ function testNotification() {
         showToast(t('notifTestPleaseEnable'), 'bg-rose-600');
         return;
     }
-    try {
-        const notif = new Notification(t('notifTestTitle'), {
+    // Try Service Worker notification first (works in background)
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+            type: 'TEST_NOTIFICATION',
+            title: t('notifTestTitle'),
             body: t('notifTestBody'),
             icon: 'https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg',
-            badge: 'https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg',
-            tag: 'wallet2-test',
-            requireInteraction: false,
-            silent: false
+            badge: 'https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg'
         });
-        notif.onclick = function() { window.focus(); notif.close(); };
         showToast(t('notifTestSent'));
-    } catch (e) {
-        // Fallback: use alert if Notification API fails
-        alert(t('notifTestTitle') + '\n' + t('notifTestBody'));
-        showToast(t('notifTestSent'));
+    } else {
+        // Fallback to regular Notification API
+        try {
+            const notif = new Notification(t('notifTestTitle'), {
+                body: t('notifTestBody'),
+                icon: 'https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg',
+                badge: 'https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg',
+                tag: 'wallet3-test',
+                requireInteraction: false,
+                silent: false
+            });
+            notif.onclick = function() { window.focus(); notif.close(); };
+            showToast(t('notifTestSent'));
+        } catch (e) {
+            alert(t('notifTestTitle') + '\n' + t('notifTestBody'));
+            showToast(t('notifTestSent'));
+        }
     }
 }
 
@@ -1739,4 +1767,21 @@ updateUI();
 const ieTypeSelect = document.getElementById('ie-type');
 if (ieTypeSelect && lastTxType) {
     ieTypeSelect.value = lastTxType;
+}
+
+// Sync notification times and wallet data to Service Worker on load
+setTimeout(() => {
+    syncNotificationTimesToSW();
+    syncWalletDataToSW();
+}, 2000);
+
+function syncWalletDataToSW() {
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        const total = users.reduce((sum, user) => sum + user.cash + user.bank, 0);
+        try {
+            const cache = caches.open('wallet3-data').then(cache => {
+                cache.put('wallet-data', new Response(JSON.stringify({ total: total })), { headers: { 'Content-Type': 'application/json' } });
+            });
+        } catch(e) {}
+    }
 }
