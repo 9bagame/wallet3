@@ -1,0 +1,21 @@
+{
+  "name": "Wallet3 - Multi-User Wallet Tracker",
+  "short_name": "Wallet3",
+  "description": "Multi-User Wallet Tracker with notifications",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

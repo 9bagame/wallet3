@@ -1189,8 +1189,13 @@ function requestNotificationPermission() {
     }
     Notification.requestPermission().then(perm => {
         checkNotificationStatus();
-        if (perm === 'granted') showToast(t('notifEnabled'));
-        else showToast(t('notifNotEnabled'), 'bg-rose-600');
+        if (perm === 'granted') {
+            showToast(t('notifEnabled'));
+            // Test notification immediately to confirm it works
+            fireTestNotification();
+        } else {
+            showToast(t('notifNotEnabled'), 'bg-rose-600');
+        }
     });
 }
 
@@ -1233,24 +1238,45 @@ function removeNotificationTime(idx) {
     showToast(t('notifTimeRemoved'));
 }
 
+function fireTestNotification() {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    const title = t('notifTestTitle');
+    const body = t('notifTestBody');
+    const icon = 'https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg';
+
+    // Method 1: Use ServiceWorkerRegistration.showNotification (most reliable on mobile)
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.ready.then(reg => {
+            reg.showNotification(title, {
+                body: body,
+                icon: icon,
+                badge: icon,
+                tag: 'wallet3-test',
+                requireInteraction: false,
+                silent: false,
+                vibrate: [200, 100, 200]
+            });
+        }).catch(() => {
+            // Method 2: Fallback to new Notification()
+            try {
+                new Notification(title, { body: body, icon: icon, tag: 'wallet3-test', vibrate: [200, 100, 200] });
+            } catch (e) { /* silent */ }
+        });
+    } else {
+        // Method 3: Use new Notification() directly
+        try {
+            new Notification(title, { body: body, icon: icon, tag: 'wallet3-test', vibrate: [200, 100, 200] });
+        } catch (e) { /* silent */ }
+    }
+}
+
 function testNotification() {
     if (Notification.permission !== 'granted') {
         showToast(t('notifTestPleaseEnable'), 'bg-rose-600');
         return;
     }
-    try {
-        new Notification(t('notifTestTitle'), {
-            body: t('notifTestBody'),
-            icon: 'https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg',
-            badge: 'https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg',
-            tag: 'wallet3-test',
-            requireInteraction: false,
-            silent: false
-        });
-        showToast(t('notifTestSent'));
-    } catch (e) {
-        showToast(t('notifTestSent'));
-    }
+    fireTestNotification();
+    showToast(t('notifTestSent'));
 }
 
 // ═══════════════════════════════════════════════════
@@ -1295,19 +1321,34 @@ function fireNotification(time) {
 
     const total = users ? users.reduce((sum, u) => sum + u.cash + u.bank, 0) : 0;
     const body = '💰 ยอดเงินรวม: ฿' + total.toLocaleString('th-TH', { minimumFractionDigits: 2 });
+    const title = '🔔 Wallet3 — ' + time;
+    const icon = 'https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg';
 
-    try {
-        new Notification('🔔 Wallet3 — ' + time, {
-            body: body,
-            icon: 'https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg',
-            badge: 'https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg',
-            tag: 'wallet3-' + time,
-            requireInteraction: false,
-            silent: false
+    const options = {
+        body: body,
+        icon: icon,
+        badge: icon,
+        tag: 'wallet3-' + time,
+        requireInteraction: false,
+        silent: false,
+        vibrate: [200, 100, 200]
+    };
+
+    // Use ServiceWorkerRegistration.showNotification (most reliable on mobile)
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.ready.then(reg => {
+            reg.showNotification(title, options).then(() => markFired(time));
+        }).catch(() => {
+            // Fallback
+            try { new Notification(title, options); markFired(time); } catch(e) {}
         });
-        markFired(time);
-    } catch (e) {
-        console.warn('Notification failed:', e);
+    } else {
+        try {
+            new Notification(title, options);
+            markFired(time);
+        } catch (e) {
+            console.warn('Notification failed:', e);
+        }
     }
 }
 
