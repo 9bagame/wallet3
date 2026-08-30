@@ -1182,6 +1182,39 @@ function checkNotificationStatus() {
     }
 }
 
+function isChromeAndroid() {
+    const ua = navigator.userAgent || '';
+    return /Android/.test(ua) && /Chrome/.test(ua) && !/Firefox/.test(ua);
+}
+
+function isStandalonePWA() {
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+});
+
+function showInstallPrompt() {
+    if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(choice => {
+            if (choice.outcome === 'accepted') {
+                showToast('✅ ติดตั้งสำเร็จ! ลองเปิดใหม่อีกครั้ง', 'bg-emerald-600');
+            }
+            deferredPrompt = null;
+        });
+    } else {
+        // Manual instructions
+        const msg = currentLang === 'th'
+            ? '📱 Chrome ต้องติดตั้งเป็น PWA:\n1. กด⋮ (3 จุด) ด้านบน\n2. เลือก "เพิ่มลงหน้าจอหลัก"\n3. ยืนยัน "เพิ่ม"\n4. เปิดเว็บจากไอคอนบนหน้าจอ'
+            : '📱 Chrome requires PWA install:\n1. Tap ⋮ (3 dots)\n2. Select "Add to Home screen"\n3. Confirm "Add"\n4. Open from home screen icon';
+        alert(msg);
+    }
+}
+
 function requestNotificationPermission() {
     if (!('Notification' in window)) {
         showToast(t('notifNotSupported'), 'bg-rose-600');
@@ -1190,9 +1223,14 @@ function requestNotificationPermission() {
     Notification.requestPermission().then(perm => {
         checkNotificationStatus();
         if (perm === 'granted') {
-            showToast(t('notifEnabled'));
-            // Test notification immediately to confirm it works
-            fireTestNotification();
+            // On Chrome Android: check if PWA is installed
+            if (isChromeAndroid() && !isStandalonePWA()) {
+                showToast('⚠️ Chrome ต้องติดตั้งเป็น PWA ก่อน', 'bg-amber-600');
+                showInstallPrompt();
+            } else {
+                showToast(t('notifEnabled'));
+                fireTestNotification();
+            }
         } else {
             showToast(t('notifNotEnabled'), 'bg-rose-600');
         }
@@ -1243,30 +1281,21 @@ function fireTestNotification() {
     const title = t('notifTestTitle');
     const body = t('notifTestBody');
     const icon = 'https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg';
+    const opts = { body, icon, tag: 'wallet3-test', vibrate: [200, 100, 200] };
 
-    // Method 1: Use ServiceWorkerRegistration.showNotification (most reliable on mobile)
-    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.ready.then(reg => {
-            reg.showNotification(title, {
-                body: body,
-                icon: icon,
-                badge: icon,
-                tag: 'wallet3-test',
-                requireInteraction: false,
-                silent: false,
-                vibrate: [200, 100, 200]
-            });
-        }).catch(() => {
-            // Method 2: Fallback to new Notification()
-            try {
-                new Notification(title, { body: body, icon: icon, tag: 'wallet3-test', vibrate: [200, 100, 200] });
-            } catch (e) { /* silent */ }
-        });
-    } else {
-        // Method 3: Use new Notification() directly
+    // Firefox: new Notification() works fine
+    if (!isChromeAndroid() || isStandalonePWA()) {
         try {
-            new Notification(title, { body: body, icon: icon, tag: 'wallet3-test', vibrate: [200, 100, 200] });
-        } catch (e) { /* silent */ }
+            new Notification(title, opts);
+            return;
+        } catch (e) { /* fallback below */ }
+    }
+
+    // Chrome Android: use ServiceWorkerRegistration.showNotification
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then(reg => {
+            reg.showNotification(title, { ...opts, badge: icon, requireInteraction: false, silent: false });
+        }).catch(() => {});
     }
 }
 
@@ -1323,32 +1352,22 @@ function fireNotification(time) {
     const body = '💰 ยอดเงินรวม: ฿' + total.toLocaleString('th-TH', { minimumFractionDigits: 2 });
     const title = '🔔 Wallet3 — ' + time;
     const icon = 'https://img.magnific.com/premium-photo/tree-with-lot-money-falling-from-it_783884-278071.jpg';
+    const opts = { body, icon, tag: 'wallet3-' + time, vibrate: [200, 100, 200] };
 
-    const options = {
-        body: body,
-        icon: icon,
-        badge: icon,
-        tag: 'wallet3-' + time,
-        requireInteraction: false,
-        silent: false,
-        vibrate: [200, 100, 200]
-    };
-
-    // Use ServiceWorkerRegistration.showNotification (most reliable on mobile)
-    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.ready.then(reg => {
-            reg.showNotification(title, options).then(() => markFired(time));
-        }).catch(() => {
-            // Fallback
-            try { new Notification(title, options); markFired(time); } catch(e) {}
-        });
-    } else {
+    // Firefox: new Notification() works fine
+    if (!isChromeAndroid() || isStandalonePWA()) {
         try {
-            new Notification(title, options);
+            new Notification(title, { ...opts, badge: icon, requireInteraction: false, silent: false });
             markFired(time);
-        } catch (e) {
-            console.warn('Notification failed:', e);
-        }
+            return;
+        } catch (e) { /* fallback below */ }
+    }
+
+    // Chrome Android: use ServiceWorkerRegistration.showNotification
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then(reg => {
+            reg.showNotification(title, { ...opts, badge: icon, requireInteraction: false, silent: false }).then(() => markFired(time));
+        }).catch(() => {});
     }
 }
 
